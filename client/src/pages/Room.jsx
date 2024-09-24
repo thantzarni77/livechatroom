@@ -1,22 +1,35 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { IoMdChatbubbles } from "react-icons/io";
-import { FaUsers } from "react-icons/fa";
-import { FaUserAlt } from "react-icons/fa";
+import { FaUsers, FaUserAlt } from "react-icons/fa";
 import { BiSolidLogOut } from "react-icons/bi";
 import { IoSend } from "react-icons/io5";
+import { formatDistanceToNow } from "date-fns";
+import { useNavigate } from "react-router-dom";
 
-const Room = ({ room, username }) => {
+const Room = ({ room, username, socket }) => {
+  const navigate = useNavigate();
+
   const roomFLetter = room.charAt(0);
   const roomFLetterCap = roomFLetter.toUpperCase();
   const remainLetter = room.slice(1);
   const capWord = roomFLetterCap + remainLetter;
 
   const [roomUsers, setRoomUsers] = useState(["user1", "user2", "user3"]);
-  const [receivedMessage, setReceiveMessage] = useState([
-    "user1",
-    "user2",
-    "user3",
-  ]);
+  const [receivedMessage, setReceiveMessage] = useState([]);
+
+  useEffect(() => {
+    socket.on("message", (data) => {
+      setReceiveMessage((prev) => [...prev, data]);
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [socket]);
+
+  const leaveRoom = () => {
+    navigate("/");
+  };
 
   return (
     <div className="flex h-screen gap-3 p-2">
@@ -46,6 +59,7 @@ const Room = ({ room, username }) => {
 
         <button
           type="button"
+          onClick={leaveRoom}
           className="absolute bottom-6 flex cursor-pointer items-center gap-2 text-white hover:text-gray-600"
         >
           <BiSolidLogOut className="text-[26px]" />
@@ -60,9 +74,11 @@ const Room = ({ room, username }) => {
                 key={index}
                 className="m-2 flex w-3/4 flex-col rounded-br-3xl rounded-tl-3xl bg-sky-500/50 p-2 font-semibold text-white"
               >
-                <p className="font-mono text-sm">from bot</p>
-                <p className="text-lg">{message}</p>
-                <p className="self-end text-sm">less than a minute</p>
+                <p className="font-mono text-sm">{message.username}</p>
+                <p className="text-lg">{message.message}</p>
+                <p className="self-end text-sm">
+                  {formatDistanceToNow(new Date(message.sent_at))}
+                </p>
               </div>
             );
           })}
