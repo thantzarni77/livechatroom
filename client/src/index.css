@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+  body {
+    background-image: url(https://static.vecteezy.com/system/resources/previews/002/188/833/original/chat-wallpaper-social-media-message-background-copy-space-for-a-text-vector.jpg);
+    background-repeat: no-repeat;
+  }
+}
+
+@layer utilities {
+  * {
+    font-family: "Quicksand", sans-serif;
+    font-optical-sizing: auto;
+  }
+
+  .inputCL {
+    @apply border-2 border-cyan-400/60 bg-cyan-200/40 font-semibold text-white placeholder-white/70;
+  }
+}
