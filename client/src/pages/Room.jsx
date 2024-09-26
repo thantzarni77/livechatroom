@@ -1,12 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { IoMdChatbubbles } from "react-icons/io";
-import { FaUsers, FaUserAlt } from "react-icons/fa";
+import { FaUsers, FaUserAlt, FaArrowAltCircleDown } from "react-icons/fa";
 import { BiSolidLogOut } from "react-icons/bi";
 import { IoSend } from "react-icons/io5";
 import { formatDistanceToNow } from "date-fns";
 import { useNavigate } from "react-router-dom";
 
-const Room = ({ room, username, socket }) => {
+const Room = ({ username, room, socket }) => {
   const navigate = useNavigate();
 
   const roomFLetter = room.charAt(0);
@@ -14,12 +14,50 @@ const Room = ({ room, username, socket }) => {
   const remainLetter = room.slice(1);
   const capWord = roomFLetterCap + remainLetter;
 
-  const [roomUsers, setRoomUsers] = useState(["user1", "user2", "user3"]);
+  const [roomUsers, setRoomUsers] = useState([]);
   const [receivedMessage, setReceiveMessage] = useState([]);
+  const [message, setMessage] = useState("");
+
+  const boxDivRef = useRef(null);
+
+  const getOldMessage = async () => {
+    const response = await fetch(`${import.meta.env.VITE_SERVER}/chat/${room}`);
+    if (response.status === 403) {
+      return navigate("/");
+    }
+    const data = await response.json();
+    setReceiveMessage((prev) => [...prev, ...data]);
+  };
 
   useEffect(() => {
+    getOldMessage();
+  }, []);
+
+  useEffect(() => {
+    //sent joined user's info to server
+    socket.emit("joined_room", { username, room });
+
+    //get message from server
     socket.on("message", (data) => {
       setReceiveMessage((prev) => [...prev, data]);
+    });
+
+    //get room users from server
+    socket.on("room_users", (data) => {
+      let prevRoomUsers = [...roomUsers];
+      data.forEach((user) => {
+        const index = prevRoomUsers.findIndex((prevUser) => {
+          return prevUser.id == data.id;
+        });
+
+        if (index !== -1) {
+          prevRoomUsers[index] = { ...prevRoomUsers[index], ...data };
+        } else {
+          prevRoomUsers.push(user);
+        }
+
+        setRoomUsers(prevRoomUsers);
+      });
     });
 
     return () => {
@@ -30,6 +68,19 @@ const Room = ({ room, username, socket }) => {
   const leaveRoom = () => {
     navigate("/");
   };
+
+  const sendMessage = () => {
+    if (message.trim().length > 0) {
+      socket.emit("message_send", message);
+      setMessage("");
+    }
+  };
+
+  useEffect(() => {
+    if (boxDivRef.current) {
+      boxDivRef.current.scrollTop = boxDivRef.current.scrollHeight;
+    }
+  }, [receivedMessage]);
 
   return (
     <div className="flex h-screen gap-3 p-2">
@@ -51,7 +102,9 @@ const Room = ({ room, username, socket }) => {
                 key={index}
               >
                 <FaUserAlt />
-                <span>{user}</span>
+                <span>
+                  {user.username === username ? "you" : user.username}
+                </span>
               </p>
             );
           })}
@@ -67,12 +120,15 @@ const Room = ({ room, username, socket }) => {
         </button>
       </div>
       <div className="relative w-full rounded-lg bg-blue-400/50 backdrop-blur-sm">
-        <div className="h-[30rem] overflow-y-auto p-2">
+        <div
+          className="flex h-[35rem] flex-col overflow-y-auto p-2"
+          ref={boxDivRef}
+        >
           {receivedMessage.map((message, index) => {
             return (
               <div
                 key={index}
-                className="m-2 flex w-3/4 flex-col rounded-br-3xl rounded-tl-3xl bg-sky-500/50 p-2 font-semibold text-white"
+                className={`m-2 flex w-3/4 flex-col rounded-br-3xl rounded-tl-3xl bg-sky-500/50 p-2 font-semibold text-white ${username == message.username ? "self-end bg-blue-800/30" : ""}`}
               >
                 <p className="font-mono text-sm">{message.username}</p>
                 <p className="text-lg">{message.message}</p>
@@ -88,8 +144,10 @@ const Room = ({ room, username, socket }) => {
             className="w-full border-b bg-blue-400/0 font-semibold text-white outline-none placeholder:text-white/80"
             type="text"
             placeholder="Enter Message..."
+            onChange={(e) => setMessage(e.target.value)}
+            value={message}
           />
-          <button type="button">
+          <button type="button" onClick={sendMessage}>
             <IoSend className="text-[26px] text-white duration-200 hover:-rotate-45 hover:text-gray-600" />
           </button>
         </div>
